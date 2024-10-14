@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        input {
+            margin: 10px;
+            width: 300px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+        }
+
+        input:focus {
+            border-color: #4caf50;
+            outline: none;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4caf50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #progressBar {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        #progress {
+            height: 30px;
+            background-color: #4caf50;
+            width: 0;
+            transition: width 0.5s;
+        }
+
+        #message {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 600px) {
+
+            input,
+            button {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>YouTube Video Downloader</h1>
+    <input type="text" id="videoUrl" placeholder="Enter YouTube video URL" />
+    <input type="text" id="downloadPath" placeholder="Enter download location (e.g., C:\Users\YourUser\Videos)" />
+    <button id="downloadButton" onclick="downloadVideo()">Download</button>
+    <p id="message"></p>
+
+    <div id="progressBar">
+        <div id="progress"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <script>
+        let stompClient = null;
+
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, function (frame) {
+                console.log('Connected: ' + frame);
+                stompClient.subscribe('/topic/progress', function (message) {
+                    updateProgressBar(message.body);
+                });
+            });
+        }
+
+        window.onload = connect;
+
+        async function downloadVideo() {
+            const url = document.getElementById('videoUrl').value;
+            const path = document.getElementById('downloadPath').value;
+
+            if (!url || !path) {
+                document.getElementById('message').innerText = "Please provide both a video URL and a download location.";
+                return;
+            }
+
+            document.getElementById('message').innerText = "Download started...";
+            document.getElementById('downloadButton').disabled = true;
+            document.getElementById('progress').style.width = '0%'; // Reset progress bar
+
+            const response = await fetch('/api/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ videoUrl: url, downloadPath: path })
+            });
+
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                document.getElementById('message').innerText += " Error: " + errorMessage;
+            }
+
+            document.getElementById('downloadButton').disabled = false;
+        }
+
+        function updateProgressBar(progress) {
+            if (progress === "Download completed.") {
+                document.getElementById('message').innerText = progress;
+                document.getElementById('progress').style.width = '100%'; // Set to full width
+            } else {
+                const percent = parseInt(progress);
+                if (!isNaN(percent)) {
+                    document.getElementById('progress').style.width = percent + '%';
+                    document.getElementById('message').innerText = "Downloaded: " + percent + "%";
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
